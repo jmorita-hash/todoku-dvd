@@ -1,7 +1,8 @@
 # DVDビデオの形（VIDEO_TS）への組み立て
 
 dvd_render_template() {
-  local post=""
+  # 再生が終わったら停止（exit）。loop の場合だけ最初に戻る
+  local post="<post>exit;</post>"
   [ "$END_ACTION" = "loop" ] && post="<post>jump title 1;</post>"
   sed -e "s|{{TV_STANDARD}}|$TV_STANDARD|g" \
       -e "s|{{ASPECT}}|$ASPECT|g" \

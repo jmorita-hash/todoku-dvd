@@ -20,18 +20,28 @@ disc_cleanup_old() {
 }
 
 # none=ディスクなし / blank=空 / used=書き込み済み / nodrive=ドライブなし / unknown
+# wrongtype|種類 = DISC_TYPES 以外のディスク（例: DVD+R、DVD-RW、CD-R）
 disc_state() {
-  local s
+  local s type
   s="$(drutil status 2>&1)"
   echo "$s" >> "$LOG"
+  type="$(echo "$s" | sed -n 's/.*Type:[[:space:]]*\([^[:space:]]*\).*/\1/p' | head -1)"
   if echo "$s" | grep -qi "No Media"; then echo none
+  elif [ -n "$type" ] && ! disc_type_allowed "$type"; then echo "wrongtype|$type"
   elif echo "$s" | grep -qi "Writability:.*blank"; then echo blank
-  elif echo "$s" | grep -qi "Type:"; then echo used
+  elif [ -n "$type" ]; then echo used
   elif [ -z "$(echo "$s" | tr -d '[:space:]')" ] || echo "$s" | grep -qi "no drive\|not found"; then echo nodrive
   else echo unknown
   fi
 }
 
+disc_type_allowed() {
+  local t
+  for t in $DISC_TYPES; do [ "$1" = "$t" ] && return 0; done
+  return 1
+}
+
+# 書き込み。-forceclose でファイナライズ（ディスクを閉じて、他の機器で読めるようにする）
 disc_burn_start() {
   local work="$1" iso="$2"
   [ -f "$iso" ] || td_die "ディスクイメージが見つかりません。"
@@ -39,7 +49,7 @@ disc_burn_start() {
   [ "$VERIFY_BURN" = "1" ] || verify="-noverifyburn"
   rm -f "$work/burn.txt"
   td_log "burn start: $iso"
-  td_job_start "$work" burn /bin/sh -c 'exec hdiutil burn -puppetstrings "$1" "$2" > "$0" 2>&1' "$work/burn.txt" "$verify" "$iso"
+  td_job_start "$work" burn /bin/sh -c 'exec hdiutil burn -puppetstrings -forceclose "$1" "$2" > "$0" 2>&1' "$work/burn.txt" "$verify" "$iso"
 }
 
 # 進捗(0-100)。分からないときは -1

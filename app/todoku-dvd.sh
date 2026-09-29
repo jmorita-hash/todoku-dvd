@@ -6,20 +6,20 @@
 # 使い方: todoku-dvd.sh <コマンド> [引数...]
 #   version                 バージョンを表示
 #   prepare                 同梱ツールの準備（起動時に1回）
-#   probe <動画>            「長さ秒|音声あり(1/0)|映像kbps」
+#   probe <動画> [前後秒]   「長さ秒|音声あり(1/0)|映像kbps|前後秒」
 #   work-new                作業フォルダを作ってパスを表示
-#   encode-start <作業> <動画>
+#   encode-start <作業> <動画> [前後秒]
 #   encode-status <作業>    「running|進捗」「done|100」
 #   author <作業>           DVDの形に組み立てる
 #   make-iso <作業> <名前>  ディスクイメージを作ってパスを表示
-#   disc-state              none / blank / used / nodrive / unknown
+#   disc-state              none / blank / used / nodrive / unknown / wrongtype|種類
 #   burn-start <作業> <iso>
 #   burn-status <作業>      「running|進捗(-1=不明)」「done|100」
 #   cancel <作業>           実行中の変換・書き込みを止める
 #   cleanup <作業>          作業フォルダを消す
 #   check-update [--force]  「新バージョン|URL」または none
 #   log-path                ログファイルの場所
-#   run <動画> [名前]       変換〜ディスクイメージ作成までを一気に（テスト用）
+#   run <動画> [名前] [前後秒]  変換〜ディスクイメージ作成までを一気に（テスト用）
 
 TD_ROOT="$(cd "$(dirname "$0")" && pwd)"
 . "$TD_ROOT/lib/common.sh"
@@ -45,12 +45,13 @@ case "$cmd" in
   probe)
     td_prepare_tools
     [ -f "$1" ] || td_die "動画ファイルが見つかりません。"
+    pad="$(media_pad_sec "$2")" || exit $?
     dur="$(media_duration "$1")"
     [ -n "$dur" ] && [ "$dur" -gt 0 ] || td_die "この動画ファイルは読み込めませんでした。
 Final Cut Proで書き出し直してから、もう一度お試しください。" 2
-    vk="$(media_video_kbps "$dur")"
+    vk="$(media_video_kbps "$dur" "$pad")"
     [ -n "$vk" ] || td_die "動画が長すぎてDVD 1枚に入りません（目安：約1時間半まで）。" 3
-    echo "$dur|$(media_has_audio "$1")|$vk"
+    echo "$dur|$(media_has_audio "$1")|$vk|$pad"
     ;;
 
   work-new)
@@ -59,10 +60,11 @@ Final Cut Proで書き出し直してから、もう一度お試しください�
 
   encode-start)
     need_work "$1"; td_prepare_tools
-    info="$("$0" probe "$2")" || exit $?
-    IFS='|' read -r dur has_audio vk <<EOF
+    info="$("$0" probe "$2" "$3")" || exit $?
+    IFS='|' read -r dur has_audio vk pad <<EOF
 $info
 EOF
+    td_meta_set "$1" pad_sec "$pad"
     td_meta_set "$1" duration "$dur"
     td_meta_set "$1" has_audio "$has_audio"
     td_meta_set "$1" video_kbps "$vk"
@@ -138,7 +140,7 @@ EOF
   run)
     [ -f "$1" ] || td_die "動画ファイルが見つかりません。"
     work="$("$0" work-new)" || exit 1
-    "$0" encode-start "$work" "$1" >/dev/null || exit 1
+    "$0" encode-start "$work" "$1" "$3" >/dev/null || exit 1
     while :; do
       st="$("$0" encode-status "$work")" || exit 1
       case "$st" in done*) break;; esac

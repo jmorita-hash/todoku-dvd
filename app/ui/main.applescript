@@ -1,6 +1,8 @@
 -- Todoku DVD の画面部分
 -- ・ダブルクリック → 動画ファイルを選ぶ画面
 -- ・動画をアイコンにドラッグ＆ドロップ → そのまま開始
+-- できるDVD: DVD-R / DVD-Video形式 / NTSC・リージョンフリー / メニューなし / 前後に無地画面（既定10秒）/
+--            リピートなし（最後まで再生したら停止）/ ファイナライズ済み
 -- 実際の処理はすべて Contents/Resources/app/todoku-dvd.sh（コマンド）に任せる。
 -- 画面の文言や流れを変えるときはこのファイル、処理を変えるときは app/lib/*.sh を直す。
 
@@ -29,21 +31,36 @@ on processMovie(inPath)
 		cli("prepare", {})
 		checkUpdate()
 
-		-- 1) 内容の確認
+		-- 1) 内容の確認と、前後の無地画面の秒数（通常10秒。お客様の指定があれば変更）
 		set info to splitText(cli("probe", {inPath}), "|")
-		set dur to (item 1 of info) as integer
-		set hasAudio to item 2 of info
+		set padSec to item 4 of info
 		set movieName to baseName(inPath)
-		set msg to "次の動画をDVDにします。" & return & return & ¬
-			"・ファイル：" & movieName & return & ¬
-			"・長さ：" & (dur div 60) & "分" & (dur mod 60) & "秒（前後に5秒ずつ黒い画面が入ります）"
-		if hasAudio is "0" then set msg to msg & return & return & "※この動画には音声がありません。無音のDVDになります。"
-		if ask(msg, {"やめる", "はじめる"}) is not "はじめる" then return
+		repeat
+			set dur to (item 1 of info) as integer
+			set msg to "次の動画をDVDにします。" & return & return & ¬
+				"・ファイル：" & movieName & return & ¬
+				"・長さ：" & (dur div 60) & "分" & (dur mod 60) & "秒" & return & return & ¬
+				"前後に入れる無地画面の秒数を下の欄に入力してください。" & return & ¬
+				"（通常は10秒。お客様の指定があればその秒数に）"
+			if item 2 of info is "0" then set msg to msg & return & return & "※この動画には音声がありません。無音のDVDになります。"
+			activate
+			set r to display dialog msg default answer padSec with title appName buttons {"やめる", "はじめる"} default button 2 with icon note
+			if button returned of r is not "はじめる" then return
+			set padSec to text returned of r
+			try
+				set info to splitText(cli("probe", {inPath, padSec}), "|")
+				set padSec to item 4 of info
+				exit repeat
+			on error errMsg number errNum
+				if errNum is -128 then error number -128
+				showInfo(errMsg)
+			end try
+		end repeat
 
 		-- 2) 変換
 		set work to cli("work-new", {})
 		setProgress("手順 1/3：DVD用に変換しています", "このままお待ちください（途中でやめる場合は「停止」）", 0)
-		cli("encode-start", {work, inPath})
+		cli("encode-start", {work, inPath, padSec})
 		waitJob("encode-status", work)
 
 		-- 3) 組み立て・ディスクイメージ作成
@@ -94,6 +111,8 @@ on burnLoop(work, isoPath)
 			showInfo("ディスクが入っていません。空のDVD-Rを入れてください。")
 		else if st is "used" then
 			showInfo("このディスクはすでに書き込み済みです。新しい空のDVD-Rを入れてください。")
+		else if st starts with "wrongtype" then
+			showInfo("このディスクは「" & (item 2 of splitText(st, "|")) & "」です。" & return & "DVD-R（マイナスR）を使ってください。")
 		else if st is "nodrive" then
 			showInfo("DVDドライブが見つかりません。ドライブがMacにつながっているか確認してください。")
 		else
