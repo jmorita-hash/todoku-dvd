@@ -1,0 +1,19 @@
+<!--
+  dvdauthor の設計図。{{...}} は lib/dvd.sh が設定値で置き換える。
+  メニューを付けたい・チャプターを付けたい場合はこのファイルを拡張する。
+-->
+<dvdauthor dest="DVD">
+  <vmgm>
+    <fpc>jump title 1;</fpc>
+  </vmgm>
+  <titleset>
+    <titles>
+      <video format="{{TV_STANDARD}}" aspect="{{ASPECT}}" widescreen="nopanscan"/>
+      <audio format="ac3" lang="{{AUDIO_LANG}}"/>
+      <pgc>
+        <vob file="movie.mpg"/>
+        {{POST}}
+      </pgc>
+    </titles>
+  </titleset>
+</dvdauthor>

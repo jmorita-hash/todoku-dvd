@@ -1,0 +1,94 @@
+# ビルド・テスト・配布を自動で行う
+# ・main に push / PR          → Macでビルドし、Apple製チップとIntelの両方でテスト
+# ・v0.2.0 のようなタグを push → 上に加えて、Releases にアプリの zip を公開
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: シェルスクリプトの文法チェック
+        run: |
+          for f in app/todoku-dvd.sh app/lib/*.sh tests/*.sh build/*.sh; do bash -n "$f"; done
+          shellcheck -S error -s bash app/todoku-dvd.sh app/lib/*.sh tests/*.sh build/*.sh
+
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: build/cache
+          key: deps-${{ hashFiles('build/fetch-ffmpeg.sh', 'build/build-dvdauthor.sh') }}
+      - name: ビルド用ツール
+        run: brew install bison flex
+      - name: ffmpeg（ユニバーサル）
+        run: build/fetch-ffmpeg.sh
+      - name: dvdauthor（ユニバーサル）
+        run: build/build-dvdauthor.sh
+      - name: アプリ組み立て
+        run: build/make-app.sh
+        env:
+          UPDATE_REPO: ${{ github.repository }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TodokuDVD
+          path: dist/TodokuDVD.zip
+          if-no-files-found: error
+
+  test:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]   # Apple製チップ / Intel
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: TodokuDVD
+          path: dist
+      - name: 展開と署名の確認
+        run: |
+          cd dist && ditto -x -k TodokuDVD.zip . && ls -la
+          codesign --verify --deep --verbose=2 "Todoku DVD.app"
+          lipo -info "Todoku DVD.app/Contents/Resources/bin/ffmpeg" "Todoku DVD.app/Contents/Resources/bin/dvdauthor"
+      - name: 動作テスト
+        run: tests/smoke.sh "dist/Todoku DVD.app/Contents/Resources/app/todoku-dvd.sh"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: TodokuDVD
+          path: dist
+      - name: バージョンとタグが一致しているか確認
+        run: |
+          test "v$(cat app/VERSION)" = "$GITHUB_REF_NAME" || { echo "app/VERSION と タグが違います"; exit 1; }
+      - name: Release を作成
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v v="$ver" '$0 ~ "^## " v {f=1; next} /^## /{f=0} f' CHANGELOG.md > notes.md
+          printf '\n---\n作業者の方は下の **TodokuDVD.zip** をダウンロードしてください。\n' >> notes.md
+          gh release create "$GITHUB_REF_NAME" dist/TodokuDVD.zip \
+            --title "Todoku DVD $ver" --notes-file notes.md

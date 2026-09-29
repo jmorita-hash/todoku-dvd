@@ -1,0 +1,4 @@
+dist/
+build/out/
+build/cache/
+.DS_Store
