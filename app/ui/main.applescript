@@ -104,7 +104,7 @@ on burnLoop(work, isoPath)
 		else
 			set msg to (burned as text) & "枚焼き上がりました。" & return & return & "もう1枚焼く場合は、新しい空のDVD-Rを入れて「DVDに焼く」を押してください。"
 		end if
-		if ask(msg, {"終わる", "DVDに焼く"}) is not "DVDに焼く" then exit repeat
+		if askUser(msg, {"終わる", "DVDに焼く"}) is not "DVDに焼く" then exit repeat
 
 		set st to cli("disc-state", {})
 		if st is "none" then
@@ -153,7 +153,7 @@ on checkUpdate()
 		set r to cli("check-update", {})
 		if r is not "none" then
 			set parts to splitText(r, "|")
-			if ask("新しいバージョン（" & item 1 of parts & "）があります。" & return & return & ¬
+			if askUser("新しいバージョン（" & item 1 of parts & "）があります。" & return & return & ¬
 				"ダウンロードページを開いて最新版を入れてください。今回はこのまま続けることもできます。", ¬
 				{"このまま続ける", "ダウンロードページを開く"}) is "ダウンロードページを開く" then
 				open location (item 2 of parts)
@@ -192,7 +192,7 @@ on resetProgress()
 	set progress additional description to ""
 end resetProgress
 
-on ask(msg, btns)
+on askUser(msg, btns)
 	activate
 	return button returned of (display dialog msg with title appName buttons btns default button (count of btns) with icon note)
 end ask
