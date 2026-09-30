@@ -10,11 +10,11 @@ property appName : "Todoku DVD"
 
 on run
 	try
-		set f to choose file with prompt "DVDにする動画ファイル（Final Cut Proで書き出したもの）を選んでください" of type {"public.movie"}
+		set movieFile to choose file with prompt "DVDにする動画ファイル（Final Cut Proで書き出したもの）を選んでください" of type {"public.movie"}
 	on error number -128
 		return
 	end try
-	processMovie(POSIX path of f)
+	processMovie(POSIX path of movieFile)
 end run
 
 on open droppedItems
@@ -32,24 +32,24 @@ on processMovie(inPath)
 		checkUpdate()
 
 		-- 1) 内容の確認と、前後の無地画面の秒数（通常10秒。お客様の指定があれば変更）
-		set info to splitText(cli("probe", {inPath}), "|")
-		set padSec to item 4 of info
+		set probeInfo to splitText(cli("probe", {inPath}), "|")
+		set padSec to item 4 of probeInfo
 		set movieName to baseName(inPath)
 		repeat
-			set dur to (item 1 of info) as integer
+			set dur to (item 1 of probeInfo) as integer
 			set msg to "次の動画をDVDにします。" & return & return & ¬
 				"・ファイル：" & movieName & return & ¬
 				"・長さ：" & (dur div 60) & "分" & (dur mod 60) & "秒" & return & return & ¬
 				"前後に入れる無地画面の秒数を下の欄に入力してください。" & return & ¬
 				"（通常は10秒。お客様の指定があればその秒数に）"
-			if item 2 of info is "0" then set msg to msg & return & return & "※この動画には音声がありません。無音のDVDになります。"
+			if item 2 of probeInfo is "0" then set msg to msg & return & return & "※この動画には音声がありません。無音のDVDになります。"
 			activate
-			set r to display dialog msg default answer padSec with title appName buttons {"やめる", "はじめる"} default button 2 with icon note
-			if button returned of r is not "はじめる" then return
-			set padSec to text returned of r
+			set dlgResult to display dialog msg default answer padSec with title appName buttons {"やめる", "はじめる"} default button 2 with icon note
+			if button returned of dlgResult is not "はじめる" then return
+			set padSec to text returned of dlgResult
 			try
-				set info to splitText(cli("probe", {inPath, padSec}), "|")
-				set padSec to item 4 of info
+				set probeInfo to splitText(cli("probe", {inPath, padSec}), "|")
+				set padSec to item 4 of probeInfo
 				exit repeat
 			on error errMsg number errNum
 				if errNum is -128 then error number -128
@@ -106,14 +106,14 @@ on burnLoop(work, isoPath)
 		end if
 		if askUser(msg, {"終わる", "DVDに焼く"}) is not "DVDに焼く" then exit repeat
 
-		set st to cli("disc-state", {})
-		if st is "none" then
+		set jobState to cli("disc-state", {})
+		if jobState is "none" then
 			showInfo("ディスクが入っていません。空のDVD-Rを入れてください。")
-		else if st is "used" then
+		else if jobState is "used" then
 			showInfo("このディスクはすでに書き込み済みです。新しい空のDVD-Rを入れてください。")
-		else if st starts with "wrongtype" then
-			showInfo("このディスクは「" & (item 2 of splitText(st, "|")) & "」です。" & return & "DVD-R（マイナスR）を使ってください。")
-		else if st is "nodrive" then
+		else if jobState starts with "wrongtype" then
+			showInfo("このディスクは「" & (item 2 of splitText(jobState, "|")) & "」です。" & return & "DVD-R（マイナスR）を使ってください。")
+		else if jobState is "nodrive" then
 			showInfo("DVDドライブが見つかりません。ドライブがMacにつながっているか確認してください。")
 		else
 			setProgress("手順 3/3：DVDに書き込んでいます", "終わるとディスクが自動で出てきます。ドライブに触らないでください", 0)
@@ -134,14 +134,14 @@ end burnLoop
 -- 変換・書き込みが終わるまで進捗を表示しながら待つ
 on waitJob(statusCmd, work)
 	repeat
-		set st to splitText(cli(statusCmd, {work}), "|")
-		if item 1 of st is "done" then exit repeat
-		set n to (item 2 of st) as integer
-		if n < 0 then
+		set jobState to splitText(cli(statusCmd, {work}), "|")
+		if item 1 of jobState is "done" then exit repeat
+		set pct to (item 2 of jobState) as integer
+		if pct < 0 then
 			set progress total steps to -1
 		else
 			set progress total steps to 100
-			set progress completed steps to n
+			set progress completed steps to pct
 		end if
 		delay 1
 	end repeat
@@ -150,9 +150,9 @@ end waitJob
 
 on checkUpdate()
 	try
-		set r to cli("check-update", {})
-		if r is not "none" then
-			set parts to splitText(r, "|")
+		set dlgResult to cli("check-update", {})
+		if dlgResult is not "none" then
+			set parts to splitText(dlgResult, "|")
 			if askUser("新しいバージョン（" & item 1 of parts & "）があります。" & return & return & ¬
 				"ダウンロードページを開いて最新版を入れてください。今回はこのまま続けることもできます。", ¬
 				{"このまま続ける", "ダウンロードページを開く"}) is "ダウンロードページを開く" then
@@ -167,19 +167,19 @@ end checkUpdate
 -- 処理コマンドを呼ぶ。失敗時はコマンドが出した日本語メッセージでエラーになる
 on cli(cmd, args)
 	set tool to (POSIX path of (path to me)) & "Contents/Resources/app/todoku-dvd.sh"
-	set s to "/bin/bash " & quoted form of tool & " " & cmd
-	repeat with a in args
-		set s to s & " " & quoted form of (a as text)
+	set cmdLine to "/bin/bash " & quoted form of tool & " " & cmd
+	repeat with oneArg in args
+		set cmdLine to cmdLine & " " & quoted form of (oneArg as text)
 	end repeat
-	return do shell script s
+	return do shell script cmdLine
 end cli
 
-on setProgress(desc, subDesc, total)
-	if total < 0 then
+on setProgress(desc, subDesc, startPct)
+	if startPct < 0 then
 		set progress total steps to -1
 	else
 		set progress total steps to 100
-		set progress completed steps to total
+		set progress completed steps to startPct
 	end if
 	set progress description to desc
 	set progress additional description to subDesc
@@ -212,24 +212,24 @@ on showError(msg)
 		with title appName buttons {"OK"} default button 1 with icon stop
 end showError
 
-on splitText(t, d)
+on splitText(srcText, delim)
 	set oldTID to AppleScript's text item delimiters
-	set AppleScript's text item delimiters to d
-	set parts to text items of t
+	set AppleScript's text item delimiters to delim
+	set parts to text items of srcText
 	set AppleScript's text item delimiters to oldTID
 	return parts
 end splitText
 
-on baseName(p)
-	set parts to splitText(p, "/")
-	set n to item -1 of parts
-	if n is "" then set n to item -2 of parts
-	set dotParts to splitText(n, ".")
+on baseName(pathText)
+	set parts to splitText(pathText, "/")
+	set fileName to item -1 of parts
+	if fileName is "" then set fileName to item -2 of parts
+	set dotParts to splitText(fileName, ".")
 	if (count of dotParts) > 1 then
 		set oldTID to AppleScript's text item delimiters
 		set AppleScript's text item delimiters to "."
-		set n to (items 1 thru -2 of dotParts) as text
+		set fileName to (items 1 thru -2 of dotParts) as text
 		set AppleScript's text item delimiters to oldTID
 	end if
-	return n
+	return fileName
 end baseName
