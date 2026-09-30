@@ -26,7 +26,7 @@ end open
 
 -- ===== 全体の流れ =====
 on processMovie(inPath)
-	set work to ""
+	set workDir to ""
 	try
 		cli("prepare", {})
 		checkUpdate()
@@ -58,18 +58,18 @@ on processMovie(inPath)
 		end repeat
 
 		-- 2) 変換
-		set work to cli("work-new", {})
+		set workDir to cli("work-new", {})
 		setProgress("手順 1/3：DVD用に変換しています", "このままお待ちください（途中でやめる場合は「停止」）", 0)
-		cli("encode-start", {work, inPath, padSec})
-		waitJob("encode-status", work)
+		cli("encode-start", {workDir, inPath, padSec})
+		waitJob("encode-status", workDir)
 
 		-- 3) 組み立て・ディスクイメージ作成
 		setProgress("手順 2/3：DVDの形に組み立てています", "もう少しお待ちください", -1)
-		cli("author", {work})
-		set isoPath to cli("make-iso", {work, movieName})
+		cli("author", {workDir})
+		set isoPath to cli("make-iso", {workDir, movieName})
 
 		-- 4) 焼く（何枚でも）
-		set burned to burnLoop(work, isoPath)
+		set burned to burnLoop(workDir, isoPath)
 		resetProgress()
 		if burned > 0 then
 			showInfo("完了しました（" & burned & "枚）。" & return & return & ¬
@@ -81,21 +81,21 @@ on processMovie(inPath)
 		end if
 	on error errMsg number errNum
 		resetProgress()
-		if work is not "" then
+		if workDir is not "" then
 			try
-				cli("cancel", {work})
+				cli("cancel", {workDir})
 			end try
 		end if
 		if errNum is not -128 then showError(errMsg)
 	end try
-	if work is not "" then
+	if workDir is not "" then
 		try
-			cli("cleanup", {work})
+			cli("cleanup", {workDir})
 		end try
 	end if
 end processMovie
 
-on burnLoop(work, isoPath)
+on burnLoop(workDir, isoPath)
 	set burned to 0
 	repeat
 		resetProgress()
@@ -106,20 +106,20 @@ on burnLoop(work, isoPath)
 		end if
 		if askUser(msg, {"終わる", "DVDに焼く"}) is not "DVDに焼く" then exit repeat
 
-		set jobState to cli("disc-state", {})
-		if jobState is "none" then
+		set discState to cli("disc-state", {})
+		if discState is "none" then
 			showInfo("ディスクが入っていません。空のDVD-Rを入れてください。")
-		else if jobState is "used" then
+		else if discState is "used" then
 			showInfo("このディスクはすでに書き込み済みです。新しい空のDVD-Rを入れてください。")
-		else if jobState starts with "wrongtype" then
-			showInfo("このディスクは「" & (item 2 of splitText(jobState, "|")) & "」です。" & return & "DVD-R（マイナスR）を使ってください。")
-		else if jobState is "nodrive" then
+		else if discState starts with "wrongtype" then
+			showInfo("このディスクは「" & (item 2 of splitText(discState, "|")) & "」です。" & return & "DVD-R（マイナスR）を使ってください。")
+		else if discState is "nodrive" then
 			showInfo("DVDドライブが見つかりません。ドライブがMacにつながっているか確認してください。")
 		else
 			setProgress("手順 3/3：DVDに書き込んでいます", "終わるとディスクが自動で出てきます。ドライブに触らないでください", 0)
 			try
-				cli("burn-start", {work, isoPath})
-				waitJob("burn-status", work)
+				cli("burn-start", {workDir, isoPath})
+				waitJob("burn-status", workDir)
 				set burned to burned + 1
 			on error errMsg number errNum
 				if errNum is -128 then error number -128
@@ -132,11 +132,12 @@ on burnLoop(work, isoPath)
 end burnLoop
 
 -- 変換・書き込みが終わるまで進捗を表示しながら待つ
-on waitJob(statusCmd, work)
+on waitJob(statusCmd, workDir)
 	repeat
-		set jobState to splitText(cli(statusCmd, {work}), "|")
-		if item 1 of jobState is "done" then exit repeat
-		set pct to (item 2 of jobState) as integer
+		set statusLine to cli(statusCmd, {workDir})
+		set stateParts to splitText(statusLine, "|")
+		if item 1 of stateParts is "done" then exit repeat
+		set pct to (item 2 of stateParts) as integer
 		if pct < 0 then
 			set progress total steps to -1
 		else
@@ -195,7 +196,7 @@ end resetProgress
 on askUser(msg, btns)
 	activate
 	return button returned of (display dialog msg with title appName buttons btns default button (count of btns) with icon note)
-end ask
+end askUser
 
 on showInfo(msg)
 	activate
