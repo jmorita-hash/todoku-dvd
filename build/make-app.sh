@@ -30,14 +30,18 @@ cp build/out/ffmpeg build/out/dvdauthor "$APP/Contents/Resources/bin/"
 cp THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/licenses/"
 cp build/cache/dvdauthor/COPYING "$APP/Contents/Resources/licenses/dvdauthor-COPYING.txt"
 
-# 3) アプリ情報
-$PB -c "Set :CFBundleIdentifier jp.todoku-movie.dvd" "$PLIST"
-$PB -c "Set :CFBundleName Todoku DVD" "$PLIST"
-$PB -c "Add :CFBundleDisplayName string Todoku DVD" "$PLIST" 2>/dev/null || $PB -c "Set :CFBundleDisplayName Todoku DVD" "$PLIST"
-$PB -c "Add :CFBundleShortVersionString string $VERSION" "$PLIST" 2>/dev/null || $PB -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
-$PB -c "Add :CFBundleVersion string $VERSION" "$PLIST" 2>/dev/null || $PB -c "Set :CFBundleVersion $VERSION" "$PLIST"
-$PB -c "Add :LSMinimumSystemVersion string 12.0" "$PLIST" 2>/dev/null || $PB -c "Set :LSMinimumSystemVersion 12.0" "$PLIST"
-$PB -c "Add :CFBundleDevelopmentRegion string ja" "$PLIST" 2>/dev/null || $PB -c "Set :CFBundleDevelopmentRegion ja" "$PLIST"
+# 3) アプリ情報（キーがあれば書き換え、なければ追加）
+plist_set() {
+  $PB -c "Set :$1 $3" "$PLIST" 2>/dev/null || $PB -c "Add :$1 $2 $3" "$PLIST"
+}
+plist_set CFBundleIdentifier string jp.todoku-movie.dvd
+plist_set CFBundleName string "Todoku DVD"
+plist_set CFBundleDisplayName string "Todoku DVD"
+plist_set CFBundleShortVersionString string "$VERSION"
+plist_set CFBundleVersion string "$VERSION"
+plist_set LSMinimumSystemVersion string 12.0
+plist_set CFBundleDevelopmentRegion string ja
+$PB -c Print "$PLIST"
 
 # 4) 署名（Appleの正式署名ではなく、動かすための最低限の「自己署名」）
 codesign --force --sign - "$APP/Contents/Resources/bin/ffmpeg" "$APP/Contents/Resources/bin/dvdauthor"

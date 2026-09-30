@@ -17,7 +17,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: シェルスクリプトの文法チェック
         run: |
           for f in app/todoku-dvd.sh app/lib/*.sh tests/*.sh build/*.sh; do bash -n "$f"; done
@@ -26,7 +26,7 @@ jobs:
   build:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/cache@v4
         with:
           path: build/cache
@@ -34,11 +34,11 @@ jobs:
       - name: ビルド用ツール
         run: brew install bison flex
       - name: ffmpeg（ユニバーサル）
-        run: build/fetch-ffmpeg.sh
+        run: build/ci-run.sh build/fetch-ffmpeg.sh
       - name: dvdauthor（ユニバーサル）
-        run: build/build-dvdauthor.sh
+        run: build/ci-run.sh build/build-dvdauthor.sh
       - name: アプリ組み立て
-        run: build/make-app.sh
+        run: build/ci-run.sh build/make-app.sh
         env:
           UPDATE_REPO: ${{ github.repository }}
       - uses: actions/upload-artifact@v4
@@ -55,7 +55,7 @@ jobs:
         os: [macos-15, macos-15-intel]   # Apple製チップ / Intel
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           name: TodokuDVD
@@ -66,7 +66,7 @@ jobs:
           codesign --verify --deep --verbose=2 "Todoku DVD.app"
           lipo -info "Todoku DVD.app/Contents/Resources/bin/ffmpeg" "Todoku DVD.app/Contents/Resources/bin/dvdauthor"
       - name: 動作テスト
-        run: tests/smoke.sh "dist/Todoku DVD.app/Contents/Resources/app/todoku-dvd.sh"
+        run: build/ci-run.sh tests/smoke.sh "dist/Todoku DVD.app/Contents/Resources/app/todoku-dvd.sh"
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -75,7 +75,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           name: TodokuDVD
