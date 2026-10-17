@@ -54,7 +54,7 @@ EOF
   [ -n "$aspect" ] || aspect="16:9"
   [ -n "$color" ] || color=black
   expect="$(echo "$expect_exact" | cut -d. -f1)"
-  echo "[2] $name（前後${pad}秒・${aspect}・${color}）"
+  echo "[2] ${name}（前後${pad}秒・${aspect}・${color}）"
   W="$(bash "$CLI" work-new)"
   # 空の引数は既定値（黒・5秒・16:9）が使われることも確かめる
   case "$name" in テスト_*) set -- ;; *) set -- "$pad" "$aspect" "$color";; esac
