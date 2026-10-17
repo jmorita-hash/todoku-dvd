@@ -16,7 +16,7 @@ Intel・Apple製チップの両方で動く（macOS 12 以降）。
 最新版はいつもこの URL から落とせる（Releases の最新版）。
 
 ```
-https://github.com/<所有者>/<リポジトリ>/releases/latest/download/TodokuDVD.zip
+https://github.com/jmorita-hash/todoku-dvd/releases/latest/download/TodokuDVD.zip
 ```
 
 使い方は [docs/worker-guide.txt](docs/worker-guide.txt)（zip にも「はじめにお読みください.txt」として同梱）。
@@ -29,13 +29,15 @@ https://github.com/<所有者>/<リポジトリ>/releases/latest/download/Todoku
 2. `app/VERSION` の数字を上げる（例: `0.2.0` → `0.3.0`）
 3. `CHANGELOG.md` に変更内容を書く（`## 0.3.0` の見出しで）
 4. main に push → GitHub Actions が Mac（Apple製チップ・Intel）でビルドとテスト
-5. テストが通ったらタグを打って push
+5. テストが通ったら、次のどちらかで公開する
+   - GitHub の「Actions」→「build」→「Run workflow」で「Releases に公開する」にチェックして実行（ブラウザだけでできる）
+   - またはタグを打って push
 
-   ```
-   git tag v0.3.0 && git push origin v0.3.0
-   ```
+     ```
+     git tag v0.3.0 && git push origin v0.3.0
+     ```
 
-6. Actions が Releases に `TodokuDVD.zip` を公開 → 作業者のアプリに更新のお知らせが出る
+6. Actions がもう一度ビルドとテストをして、通ったら Releases に `TodokuDVD.zip` を公開 → 作業者のアプリに更新のお知らせが出る
 
 ## 構成
 
