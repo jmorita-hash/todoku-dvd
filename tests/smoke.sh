@@ -58,7 +58,8 @@ EOF
   W="$(bash "$CLI" work-new)"
   # 空の引数は既定値（黒・5秒・16:9）が使われることも確かめる
   case "$name" in テスト_*) set -- ;; *) set -- "$pad" "$aspect" "$color";; esac
-  bash "$CLI" encode-start "$W" "$T/$name" "$@" >/dev/null || { fail "encode-start"; continue; }
+  # ${1+"$@"}：macOS の bash 3.2 は set -u のとき空の "$@" をエラーにするため
+  bash "$CLI" encode-start "$W" "$T/$name" ${1+"$@"} >/dev/null || { fail "encode-start"; continue; }
   while :; do
     st="$(bash "$CLI" encode-status "$W")" || { fail "encode-status"; break; }
     case "$st" in done*) break;; esac
