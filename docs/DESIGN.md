@@ -28,7 +28,7 @@ app/todoku-dvd.sh probe ~/Movies/test.mov        # 12|1|8000
 |---|---|
 | 画質、保存先を変える | `app/config/defaults.conf` |
 | 作業者ごとに設定を変える | 作業者の Mac の `~/Library/Application Support/TodokuDVD/config.conf` に同じ書式で書く |
-| 前後の無地画面の既定秒数・色を変える | `PAD_SEC` / `PAD_COLOR`（1本ごとの変更は作業時の入力欄で） |
+| 前後の無地画面の既定秒数・色、画面の縦横比を変える | `PAD_SEC` / `PAD_COLOR` / `ASPECT`（1本ごとの変更は作業時の画面で） |
 | 再生後にループさせる | `END_ACTION="loop"`（※サイトでは「リピートなし」と表記しているので、変えるならサイトも直す） |
 | チャプターやメニューを付ける | `app/templates/dvd.xml`（dvdauthor の XML）と `lib/dvd.sh` |
 | 変換の中身（フィルタ・音量調整など）を変える | `lib/media.sh` の `media_video_filter` / `media_encode_start` |

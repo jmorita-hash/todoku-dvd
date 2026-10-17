@@ -6,9 +6,11 @@
 # 使い方: todoku-dvd.sh <コマンド> [引数...]
 #   version                 バージョンを表示
 #   prepare                 同梱ツールの準備（起動時に1回）
-#   probe <動画> [前後秒]   「長さ秒|音声あり(1/0)|映像kbps|前後秒」
+#   probe <動画> [前後秒] [縦横比] [色]
+#                           「長さ秒(切り上げ)|音声あり(1/0)|映像kbps|前後秒|縦横比|色|長さ秒(小数)」
+#                           縦横比は 16:9 / 4:3、色は 黒(black) / 白(white) / #RRGGBB。空なら既定値
 #   work-new                作業フォルダを作ってパスを表示
-#   encode-start <作業> <動画> [前後秒]
+#   encode-start <作業> <動画> [前後秒] [縦横比] [色]
 #   encode-status <作業>    「running|進捗」「done|100」
 #   author <作業>           DVDの形に組み立てる
 #   make-iso <作業> <名前>  ディスクイメージを作ってパスを表示
@@ -19,7 +21,7 @@
 #   cleanup <作業>          作業フォルダを消す
 #   check-update [--force]  「新バージョン|URL」または none
 #   log-path                ログファイルの場所
-#   run <動画> [名前] [前後秒]  変換〜ディスクイメージ作成までを一気に（テスト用）
+#   run <動画> [名前] [前後秒] [縦横比] [色]  変換〜ディスクイメージ作成までを一気に（テスト用）
 
 TD_ROOT="$(cd "$(dirname "$0")" && pwd)"
 . "$TD_ROOT/lib/common.sh"
@@ -46,12 +48,17 @@ case "$cmd" in
     td_prepare_tools
     [ -f "$1" ] || td_die "動画ファイルが見つかりません。"
     pad="$(media_pad_sec "$2")" || exit $?
-    dur="$(media_duration "$1")"
-    [ -n "$dur" ] && [ "$dur" -gt 0 ] || td_die "この動画ファイルは読み込めませんでした。
+    aspect="$(media_aspect "$3")" || exit $?
+    color="$(media_pad_color "$4")" || exit $?
+    exact="$(media_duration_exact "$1")"
+    [ -n "$exact" ] || td_die "この動画ファイルは読み込めませんでした。
+Final Cut Proで書き出し直してから、もう一度お試しください。" 2
+    dur="$(media_duration_ceil "$exact")"
+    [ "$dur" -gt 0 ] || td_die "この動画ファイルは読み込めませんでした。
 Final Cut Proで書き出し直してから、もう一度お試しください。" 2
     vk="$(media_video_kbps "$dur" "$pad")"
     [ -n "$vk" ] || td_die "動画が長すぎてDVD 1枚に入りません（目安：約1時間半まで）。" 3
-    echo "$dur|$(media_has_audio "$1")|$vk|$pad"
+    echo "$dur|$(media_has_audio "$1")|$vk|$pad|$aspect|$color|$exact"
     ;;
 
   work-new)
@@ -60,12 +67,15 @@ Final Cut Proで書き出し直してから、もう一度お試しください�
 
   encode-start)
     need_work "$1"; td_prepare_tools
-    info="$("$0" probe "$2" "$3")" || exit $?
-    IFS='|' read -r dur has_audio vk pad <<EOF
+    info="$("$0" probe "$2" "$3" "$4" "$5")" || exit $?
+    IFS='|' read -r dur has_audio vk pad aspect color exact <<EOF
 $info
 EOF
     td_meta_set "$1" pad_sec "$pad"
     td_meta_set "$1" duration "$dur"
+    td_meta_set "$1" duration_exact "$exact"
+    td_meta_set "$1" aspect "$aspect"
+    td_meta_set "$1" pad_color "$color"
     td_meta_set "$1" has_audio "$has_audio"
     td_meta_set "$1" video_kbps "$vk"
     td_log "input: $2"
@@ -140,7 +150,7 @@ EOF
   run)
     [ -f "$1" ] || td_die "動画ファイルが見つかりません。"
     work="$("$0" work-new)" || exit 1
-    "$0" encode-start "$work" "$1" "$3" >/dev/null || exit 1
+    "$0" encode-start "$work" "$1" "$3" "$4" "$5" >/dev/null || exit 1
     while :; do
       st="$("$0" encode-status "$work")" || exit 1
       case "$st" in done*) break;; esac

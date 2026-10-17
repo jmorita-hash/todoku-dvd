@@ -1,7 +1,7 @@
 -- Todoku DVD の画面部分
 -- ・ダブルクリック → 動画ファイルを選ぶ画面
 -- ・動画をアイコンにドラッグ＆ドロップ → そのまま開始
--- できるDVD: DVD-R / DVD-Video形式 / NTSC・リージョンフリー / メニューなし / 前後に無地画面（既定10秒）/
+-- できるDVD: DVD-R / DVD-Video形式 / NTSC・リージョンフリー / メニューなし / 前後に無地画面（既定は黒・5秒）/
 --            リピートなし（最後まで再生したら停止）/ ファイナライズ済み
 -- 実際の処理はすべて Contents/Resources/app/todoku-dvd.sh（コマンド）に任せる。
 -- 画面の文言や流れを変えるときはこのファイル、処理を変えるときは app/lib/*.sh を直す。
@@ -31,28 +31,46 @@ on processMovie(inPath)
 		cli("prepare", {})
 		checkUpdate()
 
-		-- 1) 内容の確認と、前後の無地画面の秒数（通常10秒。お客様の指定があれば変更）
+		-- 1) 内容の確認と、前後の無地画面の秒数・色、画面の縦横比
+		--    （通常は黒・5秒・16:9。お客様の指定があれば変更）
 		set probeInfo to splitText(cli("probe", {inPath}), "|")
 		set padSec to item 4 of probeInfo
+		set ratioText to item 5 of probeInfo
+		set padColorText to item 6 of probeInfo
 		set movieName to baseName(inPath)
 		repeat
 			set dur to (item 1 of probeInfo) as integer
 			set msg to "次の動画をDVDにします。" & return & return & ¬
 				"・ファイル：" & movieName & return & ¬
-				"・長さ：" & (dur div 60) & "分" & (dur mod 60) & "秒" & return & return & ¬
+				"・長さ：" & (dur div 60) & "分" & (dur mod 60) & "秒" & return & ¬
+				"・画面の縦横比：" & ratioText & return & ¬
+				"・無地画面の色：" & colorLabel(padColorText) & return & return & ¬
 				"前後に入れる無地画面の秒数を下の欄に入力してください。" & return & ¬
-				"（通常は10秒。お客様の指定があればその秒数に）"
+				"（通常は5秒。お客様の指定があればその秒数に）" & return & return & ¬
+				"お客様の指定で縦横比や色を変えるときは「縦横比・色を変える」を押してください。"
 			if item 2 of probeInfo is "0" then set msg to msg & return & return & "※この動画には音声がありません。無音のDVDになります。"
 			activate
-			set dlgResult to display dialog msg default answer padSec with title appName buttons {"やめる", "はじめる"} default button 2 with icon note
-			if button returned of dlgResult is not "はじめる" then return
+			set dlgResult to display dialog msg default answer padSec with title appName buttons {"やめる", "縦横比・色を変える", "はじめる"} default button 3 with icon note
+			set pressedButton to button returned of dlgResult
+			if pressedButton is "やめる" then return
+			-- 入力が正しくなかったときに戻すため、今の値を覚えておく
+			set prevRatio to ratioText
+			set prevColor to padColorText
 			set padSec to text returned of dlgResult
+			if pressedButton is "縦横比・色を変える" then
+				set ratioText to pickRatio(ratioText)
+				set padColorText to pickColor(padColorText)
+			end if
 			try
-				set probeInfo to splitText(cli("probe", {inPath, padSec}), "|")
+				set probeInfo to splitText(cli("probe", {inPath, padSec, ratioText, padColorText}), "|")
 				set padSec to item 4 of probeInfo
-				exit repeat
+				set ratioText to item 5 of probeInfo
+				set padColorText to item 6 of probeInfo
+				if pressedButton is "はじめる" then exit repeat
 			on error errMsg number errNum
 				if errNum is -128 then error number -128
+				set ratioText to prevRatio
+				set padColorText to prevColor
 				showInfo(errMsg)
 			end try
 		end repeat
@@ -60,7 +78,7 @@ on processMovie(inPath)
 		-- 2) 変換
 		set workDir to cli("work-new", {})
 		setProgress("手順 1/3：DVD用に変換しています", "このままお待ちください（途中でやめる場合は「停止」）", 0)
-		cli("encode-start", {workDir, inPath, padSec})
+		cli("encode-start", {workDir, inPath, padSec, ratioText, padColorText})
 		waitJob("encode-status", workDir)
 
 		-- 3) 組み立て・ディスクイメージ作成
@@ -162,6 +180,47 @@ on checkUpdate()
 		end if
 	end try
 end checkUpdate
+
+-- ===== 縦横比・色の選択 =====
+
+-- 画面の縦横比を選ぶ。キャンセルしたら今の値のまま
+on pickRatio(currentRatio)
+	set ratioOptions to {"16:9（通常）", "4:3"}
+	set defaultItem to item 1 of ratioOptions
+	if currentRatio is "4:3" then set defaultItem to item 2 of ratioOptions
+	activate
+	set picked to choose from list ratioOptions with title appName with prompt "画面の縦横比を選んでください。" default items {defaultItem}
+	if picked is false then return currentRatio
+	if (item 1 of picked) is (item 2 of ratioOptions) then return "4:3"
+	return "16:9"
+end pickRatio
+
+-- 無地画面の色を選ぶ。キャンセルしたら今の値のまま
+on pickColor(currentColor)
+	set colorOptions to {"黒（通常）", "白", "そのほかの色（色番号で指定）"}
+	set defaultItem to item 1 of colorOptions
+	if currentColor is "white" then set defaultItem to item 2 of colorOptions
+	if currentColor starts with "#" then set defaultItem to item 3 of colorOptions
+	activate
+	set picked to choose from list colorOptions with title appName with prompt "前後の無地画面の色を選んでください。" default items {defaultItem}
+	if picked is false then return currentColor
+	set pickedLabel to item 1 of picked
+	if pickedLabel is (item 1 of colorOptions) then return "black"
+	if pickedLabel is (item 2 of colorOptions) then return "white"
+	set codeDefault to "#"
+	if currentColor starts with "#" then set codeDefault to currentColor
+	activate
+	set codeResult to display dialog "色番号を「#」と英数字6けたで入力してください（例：#F5E6D3）。" default answer codeDefault with title appName buttons {"やめる", "OK"} default button 2 with icon note
+	if button returned of codeResult is not "OK" then return currentColor
+	return text returned of codeResult
+end pickColor
+
+-- 色の値を画面に出す言葉にする
+on colorLabel(colorValue)
+	if colorValue is "black" then return "黒"
+	if colorValue is "white" then return "白"
+	return colorValue
+end colorLabel
 
 -- ===== 部品 =====
 

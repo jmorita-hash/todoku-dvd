@@ -8,7 +8,7 @@
   </vmgm>
   <titleset>
     <titles>
-      <video format="{{TV_STANDARD}}" aspect="{{ASPECT}}" widescreen="nopanscan"/>
+      <video format="{{TV_STANDARD}}" aspect="{{ASPECT}}"{{WIDESCREEN}}/>
       <audio format="ac3" lang="{{AUDIO_LANG}}"/>
       <pgc>
         <vob file="movie.mpg"/>
