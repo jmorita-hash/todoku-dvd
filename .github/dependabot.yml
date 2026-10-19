@@ -1,0 +1,9 @@
+# GitHub Actions の部品（checkout・cache など）の更新を、月1回 Dependabot が PR で知らせる（サイトの SPEC.md 8.2）。
+# 同梱の ffmpeg・dvdauthor は対象外（build/ の版を年1回、手で見直す）
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      timezone: "Asia/Tokyo"
