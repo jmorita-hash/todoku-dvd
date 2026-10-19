@@ -1,6 +1,6 @@
 # Todoku DVD
 
-Final Cut Pro で書き出した結婚式ムービーを、**メニューなし・自動再生**の DVD にする Mac アプリ。
+Remotion・Premiere Pro などで書き出した結婚式ムービーを、**メニューなし・自動再生**の DVD にする Mac アプリ。
 Intel・Apple製チップの両方で動く（macOS 12 以降）。
 
 - 動画をアイコンにドラッグ＆ドロップ → 変換 → DVD-R に書き込み（何枚でも続けて焼ける）

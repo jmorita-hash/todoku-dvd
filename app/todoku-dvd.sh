@@ -52,10 +52,10 @@ case "$cmd" in
     color="$(media_pad_color "$4")" || exit $?
     exact="$(media_duration_exact "$1")"
     [ -n "$exact" ] || td_die "この動画ファイルは読み込めませんでした。
-Final Cut Proで書き出し直してから、もう一度お試しください。" 2
+編集ソフトで書き出し直してから、もう一度お試しください。" 2
     dur="$(media_duration_ceil "$exact")"
     [ "$dur" -gt 0 ] || td_die "この動画ファイルは読み込めませんでした。
-Final Cut Proで書き出し直してから、もう一度お試しください。" 2
+編集ソフトで書き出し直してから、もう一度お試しください。" 2
     vk="$(media_video_kbps "$dur" "$pad")"
     [ -n "$vk" ] || td_die "動画が長すぎてDVD 1枚に入りません（目安：約1時間半まで）。" 3
     echo "$dur|$(media_has_audio "$1")|$vk|$pad|$aspect|$color|$exact"

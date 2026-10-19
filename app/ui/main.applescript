@@ -10,7 +10,7 @@ property appName : "Todoku DVD"
 
 on run
 	try
-		set movieFile to choose file with prompt "DVDにする動画ファイル（Final Cut Proで書き出したもの）を選んでください" of type {"public.movie"}
+		set movieFile to choose file with prompt "DVDにする動画ファイル（書き出した完成ムービー）を選んでください" of type {"public.movie"}
 	on error number -128
 		return
 	end try
